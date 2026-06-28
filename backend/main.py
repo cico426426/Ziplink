@@ -1,18 +1,22 @@
 import uvicorn
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi import Depends
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from database import get_db, init_db
 from models import Url
 from base62 import encode_base62
+from rate_limiter import RateLimiter, SlidingWindowLogLimiter
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    app.state.limiter = SlidingWindowLogLimiter()
     yield
+
+def get_rate_limiter(request: Request) -> RateLimiter:
+    return request.app.state.limiter
 
 app = FastAPI(lifespan=lifespan)
 
@@ -28,7 +32,12 @@ app.add_middleware(
 )
 
 @app.post("/shorten")
-def shorten_url(long_url: str, db: Session = Depends(get_db)):
+def shorten_url(long_url: str, 
+                request: Request, 
+                limiter: RateLimiter = Depends(get_rate_limiter), 
+                db: Session = Depends(get_db)):
+    if not limiter.is_allowed(request.client.host):
+        raise HTTPException(status_code=429, detail="Too Many Requests")
     existing = db.query(Url).filter(Url.longURL==long_url).first()
     if existing:
         return {"short_url": existing.shortURL}
