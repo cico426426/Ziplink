@@ -37,8 +37,17 @@ Ziplink/
 
 Create a `.env` file in the project root:
 
+```bash
+cp .env.example .env
+```
+
+Then update the database credentials:
+
 ```env
 DATABASE_URL=postgresql://postgres:your_password@localhost:5432/ziplink
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
 ```
 
 If the backend runs in WSL and PostgreSQL runs on Windows, `localhost` may not work. Use the Windows host gateway instead:
@@ -48,6 +57,8 @@ DATABASE_URL=postgresql://postgres:your_password@172.19.80.1:5432/ziplink
 ```
 
 If your password contains special characters, URL encode them. For example, `#` becomes `%23`.
+
+Redis is used by the `/shorten` rate limiter. By default, the backend expects Redis at `localhost:6379`.
 
 Run the backend:
 
